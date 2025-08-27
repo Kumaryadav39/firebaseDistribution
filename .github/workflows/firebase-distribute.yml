@@ -2,47 +2,39 @@ name: iOS Firebase Distribution
 
 on:
   push:
-    branches:
-      - main # runs when you push to main branch
+    branches: [main]
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
         with:
-          ruby-version: 3.1
+          flutter-version: "3.24.5"
 
-      - name: Install dependencies (CocoaPods)
+      - name: Flutter clean & pub get
         run: |
-          gem install cocoapods
-          pod install --project-directory=ios
+          flutter clean
+          flutter pub get
 
-      - name: Build iOS app
+      - name: Install CocoaPods
         run: |
-          xcodebuild -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -sdk iphoneos \
-            -configuration Release \
-            -archivePath $PWD/build/Runner.xcarchive archive
+          cd ios
+          pod install
+          cd ..
 
-          xcodebuild -exportArchive \
-            -archivePath $PWD/build/Runner.xcarchive \
-            -exportPath $PWD/build/Runner.ipa \
-            -exportOptionsPlist ios/exportOptions.plist
+      - name: Build iOS (no signing)
+        run: |
+          flutter build ios --release --no-codesign
 
-      - name: Set up Firebase Service Account
-        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/service_account.json
-
-      - name: Upload to Firebase App Distribution
+      - name: Distribute to Firebase
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFile: $HOME/service_account.json
-          groups: testers # or use "emails: email1,email2"
-          file: build/Runner.ipa
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          groups: testers
+          file: build/ios/ipa/Runner.ipa
