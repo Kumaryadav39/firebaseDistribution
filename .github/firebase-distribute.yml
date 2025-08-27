@@ -1,0 +1,48 @@
+name: iOS Firebase Distribution
+
+on:
+  push:
+    branches:
+      - main # runs when you push to main branch
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.1
+
+      - name: Install dependencies (CocoaPods)
+        run: |
+          gem install cocoapods
+          pod install --project-directory=ios
+
+      - name: Build iOS app
+        run: |
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $PWD/build/Runner.xcarchive archive
+
+          xcodebuild -exportArchive \
+            -archivePath $PWD/build/Runner.xcarchive \
+            -exportPath $PWD/build/Runner.ipa \
+            -exportOptionsPlist ios/exportOptions.plist
+
+      - name: Set up Firebase Service Account
+        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/service_account.json
+
+      - name: Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFile: $HOME/service_account.json
+          groups: testers # or use "emails: email1,email2"
+          file: build/Runner.ipa
