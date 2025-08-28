@@ -24,25 +24,25 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Step 4: Patch project to iOS 17 & build IPA
-      - name: Patch iOS targets and Build IPA
+      # Step 4: Patch iOS deployment targets and build IPA
+      - name: Patch iOS targets & Build IPA
         run: |
           set -e
-          echo "⚡ Patching iOS project to target iOS 17..."
+          echo "⚡ Updating all iOS deployment targets to 17.0"
 
           cd ios
 
-          # 1️⃣ Update Podfile deployment target
+          # 1️⃣ Update Podfile
           if grep -q "platform :ios" Podfile; then
             sed -i '' "s/platform :ios, .*/platform :ios, '17.0'/g" Podfile
           else
             echo "platform :ios, '17.0'" >> Podfile
           fi
 
-          # 2️⃣ Update Info.plist MinimumOSVersion
+          # 2️⃣ Update Info.plist
           plutil -replace MinimumOSVersion -string 17.0 Runner/Info.plist
 
-          # 3️⃣ Update Xcode project deployment target in .pbxproj
+          # 3️⃣ Update Xcode project .pbxproj
           sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 18.0;/IPHONEOS_DEPLOYMENT_TARGET = 17.0;/g" Runner.xcodeproj/project.pbxproj
 
           # 4️⃣ Update storyboards to iOS 17
@@ -52,7 +52,7 @@ jobs:
             fi
           done
 
-          # 5️⃣ Clean DerivedData to avoid simulator/runtime conflicts
+          # 5️⃣ Clean Xcode DerivedData
           rm -rf ~/Library/Developer/Xcode/DerivedData
 
           # 6️⃣ Install CocoaPods
