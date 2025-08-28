@@ -1,14 +1,16 @@
-name: iOS Build and Firebase Distribution
+name: iOS Firebase Distribution
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main # or your release branch
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Setup Flutter
@@ -19,12 +21,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Build IPA
       - name: Build IPA (no codesign)
         run: flutter build ipa --release --no-codesign
 
-      # Upload to Firebase App Distribution
-      - name: Upload to Firebase App Distribution
+      - name: Install Firebase CLI
+        run: curl -sL https://firebase.tools | bash
+
+      - name: Upload IPA to Firebase
         run: |
           firebase appdistribution:distribute build/ios/ipa/Runner.ipa \
             --app ${{ secrets.FIREBASE_APP_ID_IOS }} \
