@@ -17,9 +17,11 @@ jobs:
         with:
           flutter-version: "3.24.5"
 
-      # ✅ Pin Xcode to 15.4 (avoids iOS 18.0 SDK issue)
-      - name: Select Xcode 15.4
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+      - name: Show available Xcode versions
+        run: ls /Applications | grep Xcode
+
+      - name: Select Xcode 15.2
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
 
       - name: Install dependencies
         run: flutter pub get
