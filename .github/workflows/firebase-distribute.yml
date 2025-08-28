@@ -33,7 +33,7 @@ jobs:
           pod install --repo-update
 
       - name: Build iOS IPA for device only
-        run: flutter build ipa --release --no-codesign --no-simulator
+        run: flutter build ipa --release --no-codesign --export-method ad-hoc
 
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
