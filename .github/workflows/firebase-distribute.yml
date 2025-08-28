@@ -1,48 +1,33 @@
-name: iOS Firebase Distribution
+name: iOS Build and Firebase Distribution
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.24.5
+          flutter-version: "3.24.5"
+
+      # ✅ Pin Xcode to 15.4 (avoids iOS 18.0 SDK issue)
+      - name: Select Xcode 15.4
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
       - name: Install dependencies
         run: flutter pub get
 
-      # Build archive (no codesign)
-      - name: Build iOS archive
+      - name: Build IPA (no codesign)
         run: flutter build ipa --release --no-codesign
 
-      # Debug – check what was generated
-      - name: List iOS build output
-        run: ls -R build/ios/
-
-      # Export IPA manually if missing
-      - name: Export IPA manually
-        if: ${{ !hashFiles('build/ios/ipa/Runner.ipa') }}
-        run: |
-          mkdir -p build/ios/ipa
-          xcodebuild -exportArchive \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist ios/ExportOptions.plist
-
-      # Confirm IPA exists
-      - name: Verify IPA
-        run: ls -l build/ios/ipa/
-
-      # Distribute to Firebase App Distribution
-      - name: Distribute to Firebase
+      - name: Upload IPA to Firebase App Distribution
         run: |
           firebase appdistribution:distribute build/ios/ipa/Runner.ipa \
             --app ${{ secrets.FIREBASE_APP_ID_IOS }} \
