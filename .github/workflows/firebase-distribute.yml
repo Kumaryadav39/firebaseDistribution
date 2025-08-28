@@ -39,5 +39,6 @@ jobs:
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }} # your Android/iOS App ID
           serviceCredentialsFileContent: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
-          groups: "kumaryadav39@gmail.com,kumar.appsdev@gmail.com"
+          testers: "kumaryadav39@gmail.com,kumar.appsdev@gmail.com"
+          releaseNotes: "Fixed login bug, updated UI, improved performance"
           file: build/app/outputs/flutter-apk/app-release.apk
