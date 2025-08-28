@@ -1,11 +1,13 @@
-name: iOS Build and Firebase Distribution
+name: iOS Build & Firebase Distribution
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # run manually
+  push:
+    branches: [main]
 
 jobs:
-  build:
-    runs-on: macos-latest
+  build-ios:
+    runs-on: macos-15
 
     steps:
       - name: Checkout repository
@@ -19,15 +21,18 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build IPA (no codesign)
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build iOS IPA
         run: flutter build ipa --release --no-codesign
 
-      - name: Install Firebase CLI
-        run: curl -sL https://firebase.tools | bash
-
-      - name: Distribute to Firebase App Distribution
-        run: |
-          firebase appdistribution:distribute build/ios/ipa/Runner.ipa \
-            --app ${{ secrets.FIREBASE_APP_ID_IOS }} \
-            --testers "kumar.nallakukkala@playerzpot.com" \
-            --token ${{ secrets.FIREBASE_AUTH_TOKEN }}
+      - name: Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          token: ${{ secrets.FIREBASE_AUTH_TOKEN }}
+          groups: testers
+          file: build/ios/ipa/*.ipa
