@@ -39,5 +39,5 @@ jobs:
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }} # your Android/iOS App ID
           serviceCredentialsFileContent: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
-          groups: testers
+          groups: "kumaryadav39@gmail.com,kumar.appsdev@gmail.com"
           file: build/app/outputs/flutter-apk/app-release.apk
