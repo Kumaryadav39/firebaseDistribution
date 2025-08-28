@@ -1,41 +1,29 @@
-name: iOS Firebase Distribution
+name: iOS Build and Firebase Distribution
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
-  build_ios:
-    runs-on: macos-14 # macOS needed for Xcode
+  build:
+    runs-on: macos-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: "3.24.5"
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Install CocoaPods
-        run: |
-          cd ios
-          pod install --repo-update
-          cd ..
+      # Build IPA
+      - name: Build IPA (no codesign)
+        run: flutter build ipa --release --no-codesign
 
-      # ✅ Build IPA for release (no codesign)
-      - name: Build iOS IPA
-        run: flutter build ipa --release --no-codesign --export-options-plist=ios/ExportOptions.plist
-
-      # ✅ Install Firebase CLI
-      - name: Install Firebase CLI
-        run: curl -sL https://firebase.tools | bash
-
-      # ✅ Upload IPA to Firebase App Distribution
+      # Upload to Firebase App Distribution
       - name: Upload to Firebase App Distribution
         run: |
           firebase appdistribution:distribute build/ios/ipa/Runner.ipa \
