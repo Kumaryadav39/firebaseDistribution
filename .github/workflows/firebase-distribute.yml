@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-15
 
     steps:
-      # Step 1: Checkout repository
+      # Step 1: Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Step 4: Update deployment target to iOS 17 and build IPA
+      # Step 4: Update deployment target, clean DerivedData, and build IPA
       - name: Update deployment target & Build IPA
         run: |
           set -e
@@ -58,11 +58,12 @@ jobs:
 
           cd ..
 
-          # 6️⃣ Clean Flutter build
+          # 6️⃣ Clean Flutter and Xcode DerivedData
           flutter clean
           flutter pub get
+          rm -rf ~/Library/Developer/Xcode/DerivedData
 
-          # 7️⃣ Build IPA for device (Ad-Hoc)
+          # 7️⃣ Build IPA for device (generic device)
           flutter build ipa --release --no-codesign --export-method ad-hoc
 
       # Step 5: Upload IPA to Firebase App Distribution
