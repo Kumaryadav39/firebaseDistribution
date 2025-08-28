@@ -33,29 +33,36 @@ jobs:
 
           cd ios
 
-          # Update Podfile
+          # 1️⃣ Update Podfile
           if grep -q "platform :ios" Podfile; then
             sed -i '' "s/platform :ios, .*/platform :ios, '17.0'/g" Podfile
           else
             echo "platform :ios, '17.0'" >> Podfile
           fi
 
-          # Update Info.plist
+          # 2️⃣ Update Info.plist
           plutil -replace MinimumOSVersion -string 17.0 Runner/Info.plist
 
-          # Update Xcode project deployment target in project.pbxproj
+          # 3️⃣ Update Xcode project deployment target
           sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 18.0;/IPHONEOS_DEPLOYMENT_TARGET = 17.0;/g" Runner.xcodeproj/project.pbxproj
 
-          # Install CocoaPods
+          # 4️⃣ Update Storyboard files to iOS 17
+          for file in Runner/Base.lproj/Main.storyboard Runner/Base.lproj/LaunchScreen.storyboard; do
+            if [ -f "$file" ]; then
+              sed -i '' "s/targetRuntime=\"iOS.CocoaTouch\" systemVersion=\"18.0\"/targetRuntime=\"iOS.CocoaTouch\" systemVersion=\"17.0\"/g" "$file"
+            fi
+          done
+
+          # 5️⃣ Install CocoaPods
           pod install --repo-update
 
           cd ..
 
-          # Clean Flutter build
+          # 6️⃣ Clean Flutter build
           flutter clean
           flutter pub get
 
-          # Build IPA for device (Ad-Hoc)
+          # 7️⃣ Build IPA for device (Ad-Hoc)
           flutter build ipa --release --no-codesign --export-method ad-hoc
 
       # Step 5: Upload IPA to Firebase App Distribution
