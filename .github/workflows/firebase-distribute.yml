@@ -3,7 +3,7 @@ name: iOS Build & Firebase Distribution
 on:
   workflow_dispatch: # run manually
   push:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   build-ios:
