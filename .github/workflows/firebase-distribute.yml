@@ -8,7 +8,7 @@ on:
 
 jobs:
   build_ios:
-    runs-on: macos-14 # ✅ pin to stable macOS + Xcode
+    runs-on: macos-14 # macOS needed for Xcode
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,15 +27,18 @@ jobs:
           pod install --repo-update
           cd ..
 
-      # ✅ Build IPA for release (without codesigning)
+      # ✅ Build IPA for release (no codesign)
       - name: Build iOS IPA
         run: flutter build ipa --release --no-codesign --export-options-plist=ios/ExportOptions.plist
 
-      # ✅ Upload to Firebase App Distribution
+      # ✅ Install Firebase CLI
+      - name: Install Firebase CLI
+        run: curl -sL https://firebase.tools | bash
+
+      # ✅ Upload IPA to Firebase App Distribution
       - name: Upload to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID_IOS }}
-          token: ${{ secrets.FIREBASE_AUTH_TOKEN }}
-          groups: testers
-          file: build/ios/ipa/Runner.ipa
+        run: |
+          firebase appdistribution:distribute build/ios/ipa/Runner.ipa \
+            --app ${{ secrets.FIREBASE_APP_ID_IOS }} \
+            --groups testers \
+            --token ${{ secrets.FIREBASE_AUTH_TOKEN }}
