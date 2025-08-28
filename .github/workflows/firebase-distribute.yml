@@ -1,40 +1,41 @@
-name: iOS Firebase Distribution
+name: Firebase iOS Distribution
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v3
+      # Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Install Flutter
+      # Setup Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
 
-      - name: Flutter clean & pub get
-        run: |
-          flutter clean
-          flutter pub get
+      # Install dependencies
+      - name: Install dependencies
+        run: flutter pub get
 
-      - name: Install CocoaPods
-        run: |
-          cd ios
-          pod install
-          cd ..
+      # Build iOS IPA (no codesign inside CI)
+      - name: Build iOS
+        run: flutter build ipa --release --no-codesign
 
-      - name: Build iOS (no signing)
-        run: |
-          flutter build ios --release --no-codesign
+      # Install Firebase CLI
+      - name: Install Firebase CLI
+        run: curl -sL https://firebase.tools | bash
 
-      - name: Distribute to Firebase
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          token: ${{ secrets.FIREBASE_TOKEN }}
-          groups: testers
-          file: build/ios/ipa/Runner.ipa
+      # Distribute to Firebase App Distribution
+      - name: Upload to Firebase App Distribution
+        run: |
+          firebase appdistribution:distribute build/ios/ipa/*.ipa \
+            --app ${{ secrets.FIREBASE_APP_ID }} \
+            --groups testers
+        env:
+          FIREBASE_AUTH_TOKEN: ${{ secrets.FIREBASE_AUTH_TOKEN }}
