@@ -1,42 +1,29 @@
-name: iOS Build & Distribute
+name: iOS Build and Firebase Distribution
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - develop
 
 jobs:
-  build-ios:
-    runs-on: macos-14 # macos-14 runners have Xcode 15.4 and 16.0 preinstalled
+  build:
+    runs-on: macos-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
 
-      - name: Show available Xcode versions
-        run: ls /Applications | grep Xcode
-
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          # prefer 15.2 if available, else fallback to 15.4
-          xcode-version: "15.2"
-
-      - name: Flutter Clean
-        run: flutter clean
-
-      - name: Install Dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Build iOS IPA (No Codesign)
+      - name: Build IPA (no codesign)
         run: flutter build ipa --release --no-codesign
+
+      - name: Install Firebase CLI
+        run: curl -sL https://firebase.tools | bash
 
       - name: Distribute to Firebase App Distribution
         run: |
