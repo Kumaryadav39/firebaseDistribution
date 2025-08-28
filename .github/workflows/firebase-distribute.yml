@@ -24,14 +24,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Step 4: Update deployment target and build IPA
+      # Step 4: Update deployment target to iOS 17 and build IPA
       - name: Update deployment target & Build IPA
         run: |
           set -e
 
           echo "Updating iOS deployment target to 17.0..."
 
-          # Navigate to ios folder
           cd ios
 
           # Update Podfile
@@ -44,8 +43,8 @@ jobs:
           # Update Info.plist
           plutil -replace MinimumOSVersion -string 17.0 Runner/Info.plist
 
-          # Update Xcode project deployment target
-          /usr/libexec/PlistBuddy -c "Set :IPHONEOS_DEPLOYMENT_TARGET 17.0" Runner.xcodeproj/project.pbxproj
+          # Update Xcode project deployment target in project.pbxproj
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 18.0;/IPHONEOS_DEPLOYMENT_TARGET = 17.0;/g" Runner.xcodeproj/project.pbxproj
 
           # Install CocoaPods
           pod install --repo-update
@@ -56,7 +55,7 @@ jobs:
           flutter clean
           flutter pub get
 
-          # Build IPA
+          # Build IPA for device (Ad-Hoc)
           flutter build ipa --release --no-codesign --export-method ad-hoc
 
       # Step 5: Upload IPA to Firebase App Distribution
