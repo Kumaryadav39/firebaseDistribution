@@ -1,7 +1,7 @@
 name: iOS Build & Firebase Distribution
 
 on:
-  workflow_dispatch: # run manually
+  workflow_dispatch:
   push:
     branches: [main, develop]
 
@@ -21,13 +21,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Set iOS deployment target
+        run: |
+          cd ios
+          # Automatically set platform to 17.0 (or any version supported by runner)
+          sed -i '' "s/platform :ios, .*/platform :ios, '17.0'/g" Podfile
+
       - name: Install CocoaPods
         run: |
           cd ios
           pod install --repo-update
 
-      - name: Build iOS IPA
-        run: flutter build ipa --release --no-codesign
+      - name: Build iOS IPA for device only
+        run: flutter build ipa --release --no-codesign --no-simulator
 
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
