@@ -5,14 +5,14 @@ on:
   push:
     branches: [main, develop]
 
-permissions: # ✅ required for artifact sharing between jobs
+permissions:
   contents: read
   actions: read
   id-token: write
 
 jobs:
   build-ios:
-    runs-on: macos-14 # ✅ stable Xcode 15.4 (iOS 17 SDK)
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -40,23 +40,52 @@ jobs:
           flutter clean
           flutter build ipa --release --no-codesign --export-method ad-hoc
 
-      - name: Debug IPA path
-        run: ls -R build/ios/ipa || true
+      - name: Debug build outputs
+        run: |
+          echo "=== build/ios/ipa ==="
+          ls -lh build/ios/ipa || true
+          echo "=== build/ios/archive ==="
+          ls -lh build/ios/archive || true
 
-      - name: Upload IPA artifact
+      - name: Upload artifact (IPA or XCArchive)
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: build/ios/ipa/*.ipa
+          path: |
+            build/ios/ipa/*.ipa
+            build/ios/archive/**/*.xcarchive
+          if-no-files-found: error
 
   distribute:
     needs: build-ios
-    runs-on: ubuntu-latest # ✅ Linux required for Firebase action (Docker)
+    runs-on: macos-14 # ✅ must run on macOS if we need to convert xcarchive → ipa
     steps:
-      - name: Download IPA artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: ios-ipa
+
+      - name: Debug downloaded files
+        run: ls -R
+
+      - name: Convert XCArchive to IPA (if needed)
+        run: |
+          if ls *.ipa 1> /dev/null 2>&1; then
+            echo "✅ IPA already exists."
+          else
+            echo "⚡ No IPA found, trying to export from XCArchive..."
+            ARCHIVE=$(find . -name "*.xcarchive" | head -n 1)
+            if [ -z "$ARCHIVE" ]; then
+              echo "❌ No IPA or XCArchive found!"
+              exit 1
+            fi
+            mkdir -p export
+            xcodebuild -exportArchive \
+              -archivePath "$ARCHIVE" \
+              -exportPath export \
+              -exportOptionsPlist ios/ExportOptions.plist
+            mv export/*.ipa ./Runner.ipa
+          fi
 
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
