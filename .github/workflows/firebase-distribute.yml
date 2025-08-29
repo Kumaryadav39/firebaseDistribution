@@ -7,67 +7,31 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-15
+    runs-on: macos-14 # ✅ use macOS 14 (Ventura) image with Xcode 15.4
 
     steps:
-      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up Flutter
+      - name: Select Xcode 15.4
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
 
-      # Step 3: Install Flutter dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # Step 4: Patch iOS deployment targets and build IPA
-      - name: Patch iOS targets & Build IPA
+      - name: Build IPA
         run: |
-          set -e
-          echo "⚡ Updating all iOS deployment targets to 17.0"
-
-          cd ios
-
-          # 1️⃣ Update Podfile
-          if grep -q "platform :ios" Podfile; then
-            sed -i '' "s/platform :ios, .*/platform :ios, '17.0'/g" Podfile
-          else
-            echo "platform :ios, '17.0'" >> Podfile
-          fi
-
-          # 2️⃣ Update Info.plist
-          plutil -replace MinimumOSVersion -string 17.0 Runner/Info.plist
-
-          # 3️⃣ Update Xcode project .pbxproj
-          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 18.0;/IPHONEOS_DEPLOYMENT_TARGET = 17.0;/g" Runner.xcodeproj/project.pbxproj
-
-          # 4️⃣ Update storyboards to iOS 17
-          for file in Runner/Base.lproj/Main.storyboard Runner/Base.lproj/LaunchScreen.storyboard; do
-            if [ -f "$file" ]; then
-              sed -i '' "s/systemVersion=\"18.0\"/systemVersion=\"17.0\"/g" "$file"
-            fi
-          done
-
-          # 5️⃣ Clean Xcode DerivedData
-          rm -rf ~/Library/Developer/Xcode/DerivedData
-
-          # 6️⃣ Install CocoaPods
-          pod install --repo-update
-
-          cd ..
-
-          # 7️⃣ Clean Flutter build
           flutter clean
-          flutter pub get
-
-          # 8️⃣ Build IPA for device (Ad-Hoc)
+          cd ios
+          pod install --repo-update
+          cd ..
           flutter build ipa --release --no-codesign --export-method ad-hoc
 
-      # Step 5: Upload IPA to Firebase App Distribution
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
