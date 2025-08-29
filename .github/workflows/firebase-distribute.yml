@@ -5,88 +5,78 @@ on:
   push:
     branches: [main, develop]
 
-permissions:
-  contents: read
-  actions: read
-  id-token: write
-
 jobs:
   build-ios:
     runs-on: macos-14
+
     steps:
+      # Checkout repo
       - uses: actions/checkout@v4
 
-      - name: Select Xcode 15.4
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
-
+      # Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
 
-      - name: Install Flutter dependencies
+      # Install dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: CocoaPods install
-        run: |
-          cd ios
-          rm -rf Pods Podfile.lock
-          pod repo update
-          pod install
-          cd ..
-
-      - name: Build IPA
+      # Clean & build archive (without signing)
+      - name: Build Xcode Archive
         run: |
           flutter clean
-          flutter build ipa --release --no-codesign --export-method ad-hoc
+          flutter build ios --release --no-codesign
+          mkdir -p build/ios/archive
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            archive \
+            -archivePath $GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive \
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Debug build outputs
+      # Export IPA using ExportOptions.plist (must exist in ios/ExportOptions.plist)
+      - name: Export IPA
         run: |
-          echo "=== build/ios/ipa ==="
-          ls -lh build/ios/ipa || true
-          echo "=== build/ios/archive ==="
-          ls -lh build/ios/archive || true
+          ARCHIVE="$GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive"
+          EXPORT_PLIST="$GITHUB_WORKSPACE/ios/ExportOptions.plist"
+          EXPORT_PATH="$GITHUB_WORKSPACE/build/ios/export"
 
-      - name: Upload artifact (IPA or XCArchive)
+          echo "📦 Archive: $ARCHIVE"
+          echo "📝 Using ExportOptions.plist: $EXPORT_PLIST"
+
+          mkdir -p $EXPORT_PATH
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist "$EXPORT_PLIST" \
+            -allowProvisioningUpdates \
+            CODE_SIGNING_ALLOWED=NO
+
+          mv $EXPORT_PATH/*.ipa $GITHUB_WORKSPACE/Runner.ipa
+          echo "✅ IPA created at: $GITHUB_WORKSPACE/Runner.ipa"
+
+      # Upload IPA as artifact
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: |
-            build/ios/ipa/*.ipa
-            build/ios/archive/**/*.xcarchive
-          if-no-files-found: error
+          path: Runner.ipa
 
   distribute:
     needs: build-ios
-    runs-on: macos-14 # ✅ must run on macOS if we need to convert xcarchive → ipa
+    runs-on: ubuntu-latest
     steps:
-      - name: Download artifact
+      # Download IPA artifact
+      - name: Download IPA artifact
         uses: actions/download-artifact@v4
         with:
           name: ios-ipa
 
-      - name: Debug downloaded files
-        run: ls -R
-
-      - name: Convert XCArchive to IPA (if needed)
-        run: |
-          if ls *.ipa 1> /dev/null 2>&1; then
-            echo "✅ IPA already exists."
-          else
-            echo "⚡ No IPA found, trying to export from XCArchive..."
-            ARCHIVE=$(find . -name "*.xcarchive" | head -n 1)
-            if [ -z "$ARCHIVE" ]; then
-              echo "❌ No IPA or XCArchive found!"
-              exit 1
-            fi
-            mkdir -p export
-            xcodebuild -exportArchive \
-              -archivePath "$ARCHIVE" \
-              -exportPath export \
-              -exportOptionsPlist ios/ExportOptions.plist
-            mv export/*.ipa ./Runner.ipa
-          fi
-
+      # Upload to Firebase
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
@@ -94,4 +84,4 @@ jobs:
           token: ${{ secrets.FIREBASE_AUTH_TOKEN }}
           testers: "kumaryadav39@gmail.com,kumar.appsdev@gmail.com"
           releaseNotes: "Fixed login bug, updated UI, improved performance"
-          file: "*.ipa"
+          file: "Runner.ipa"
