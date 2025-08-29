@@ -1,95 +1,66 @@
-name: iOS Build & Firebase Distribution
+name: iOS Build & Distribute
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main, develop]
+    branches: [main]
 
 jobs:
   build-ios:
-    runs-on: macos-14
+    runs-on: macos-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.5"
+          channel: stable
 
-      - name: Install CocoaPods
+      # 🔐 Install certificate (.p12)
+      - name: Install Apple Certificate
         run: |
-          cd ios
-          pod install --repo-update
-          cd ..
+          echo "$APPLE_CERTIFICATE_P12" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -d user -s ~/Library/Keychains/build.keychain
+          security unlock-keychain -p "" ~/Library/Keychains/build.keychain
+          security set-keychain-settings -lut 21600 ~/Library/Keychains/build.keychain
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
-      - name: Create ExportOptions.plist (dynamic)
+      # 🔐 Install provisioning profile
+      - name: Install Provisioning Profile
         run: |
-          mkdir -p ios
-          cat > ios/ExportOptions.plist <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-          <key>method</key>
-           <string>release-testing</string>
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/app.mobileprovision
+        env:
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
 
-            <key>signingStyle</key>
-             <string>manual</string>
-
-              <key>teamID</key>
-               <string>${APPLE_TEAM_ID}</string>
-
-                  <key>compileBitcode</key>
-               <false/>
-                </dict>
-            </plist>
-          EOF
+      # 📦 Build signed IPA
+      - name: Build IPA
+        run: |
+          flutter clean
+          flutter pub get
+          flutter build ipa --export-options-plist=ios/ExportOptions.plist
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Build Archive
-        run: |
-          flutter clean
-          flutter build ios --release --no-codesign
-          mkdir -p build/ios/archive
-          xcodebuild -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -sdk iphoneos \
-            -configuration Release \
-            archive -archivePath build/ios/archive/Runner.xcarchive \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Export IPA
-        run: |
-          mkdir -p build/ios/ipa
-          cd build/ios/archive/Runner.xcarchive/Products/Applications
-          mkdir -p Payload
-          cp -r Runner.app Payload/
-          zip -r Runner.ipa Payload
-          mv Runner.ipa ../../../../ipa/
-          cd ../../../../
-
-      - name: Upload IPA artifact
+      # ⬆️ Upload artifact to GitHub
+      - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
           path: build/ios/ipa/*.ipa
 
-  distribute:
-    needs: build-ios
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download IPA artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ios-ipa
-          path: .
-
+      # 🚀 Upload to Firebase App Distribution
       - name: Upload to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        uses: wzieba/firebase-distribution-github-action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
-          token: ${{ secrets.FIREBASE_AUTH_TOKEN }}
-          groups: testers
-          file: "*.ipa"
-          releaseNotes: "Fixed login bug, updated UI, improved performance"
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          file: build/ios/ipa/Runner.ipa
+          groups: testers-group # 👈 Firebase Tester Group
+          testers: "user1@gmail.com,user2@gmail.com" # 👈 Direct tester emails
+          releaseNotes: "New iOS build from GitHub Actions 🚀"
