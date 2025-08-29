@@ -5,7 +5,7 @@ on:
   push:
     branches: [main, develop]
 
-permissions: # ✅ required for artifact sharing
+permissions: # ✅ required for artifact sharing between jobs
   contents: read
   actions: read
   id-token: write
@@ -51,7 +51,7 @@ jobs:
 
   distribute:
     needs: build-ios
-    runs-on: ubuntu-latest # ✅ so the Firebase action can run in Docker
+    runs-on: ubuntu-latest # ✅ Linux required for Firebase action (Docker)
     steps:
       - name: Download IPA artifact
         uses: actions/download-artifact@v4
