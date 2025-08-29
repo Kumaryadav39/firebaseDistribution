@@ -1,66 +1,67 @@
-name: iOS Build & Distribute
+name: iOS AdHoc Build & Firebase Distribution
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-ios:
     runs-on: macos-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - name: Set up Ruby (for CocoaPods)
+        uses: ruby/setup-ruby@v1
         with:
-          channel: stable
+          ruby-version: "3.2"
 
-      # 🔐 Install certificate (.p12)
-      - name: Install Apple Certificate
+      - name: Install iOS dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Decode Certificates & Profiles
         run: |
           echo "$APPLE_CERTIFICATE_P12" | base64 --decode > certificate.p12
+          echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode > profile.mobileprovision
+
+      - name: Install signing certificate
+        run: |
           security create-keychain -p "" build.keychain
           security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security list-keychains -d user -s ~/Library/Keychains/build.keychain
+          security list-keychains -s ~/Library/Keychains/build.keychain
+          security default-keychain -s ~/Library/Keychains/build.keychain
           security unlock-keychain -p "" ~/Library/Keychains/build.keychain
-          security set-keychain-settings -lut 21600 ~/Library/Keychains/build.keychain
-        env:
-          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" ~/Library/Keychains/build.keychain
 
-      # 🔐 Install provisioning profile
-      - name: Install Provisioning Profile
+      - name: Install provisioning profile
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/app.mobileprovision
-        env:
-          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      # 📦 Build signed IPA
-      - name: Build IPA
+      - name: Build iOS app (archive)
         run: |
-          flutter clean
-          flutter pub get
-          flutter build ipa --export-options-plist=ios/ExportOptions.plist
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            archive DEVELOPMENT_TEAM=$APPLE_TEAM_ID
 
-      # ⬆️ Upload artifact to GitHub
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-ipa
-          path: build/ios/ipa/*.ipa
+      - name: Export IPA
+        run: |
+          mkdir -p build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ios/ExportOptions.plist
 
-      # 🚀 Upload to Firebase App Distribution
-      - name: Upload to Firebase App Distribution
-        uses: wzieba/firebase-distribution-github-action@v1
+      - name: Upload to Firebase
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          token: ${{ secrets.FIREBASE_AUTH_TOKEN }}
+          groups: testers # 👈 change if you named tester group differently
           file: build/ios/ipa/Runner.ipa
-          groups: testers-group # 👈 Firebase Tester Group
-          testers: "user1@gmail.com,user2@gmail.com" # 👈 Direct tester emails
-          releaseNotes: "New iOS build from GitHub Actions 🚀"
+          releaseNotes: "Automated Ad Hoc build from GitHub Actions"

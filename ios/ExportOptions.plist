@@ -2,16 +2,32 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Export type -->
     <key>method</key>
-    <string>release-testing</string>
+    <string>ad-hoc</string>
 
-    <key>signingStyle</key>
-    <string>manual</string>
-
+    <!-- Your Apple Developer Team ID -->
     <key>teamID</key>
     <string>7H749SZ6XX</string>
 
+    <!-- Manual signing -->
+    <key>signingStyle</key>
+    <string>manual</string>
+
+    <!-- Explicit provisioning profile mapping -->
+    <key>provisioningProfiles</key>
+    <dict>
+        <!-- Replace with your actual bundle id -->
+        <key>com.ppm</key>
+        <string>gitHub_actions</string>
+    </dict>
+
+    <!-- Other options -->
     <key>compileBitcode</key>
     <false/>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>
 </dict>
 </plist>
