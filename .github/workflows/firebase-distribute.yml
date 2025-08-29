@@ -10,10 +10,25 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select Xcode 15.4
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: CocoaPods install
+        run: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          pod repo update
+          pod install
+          cd ..
 
       - name: Build IPA
         run: |
@@ -42,5 +57,4 @@ jobs:
           token: ${{ secrets.FIREBASE_AUTH_TOKEN }}
           testers: "kumaryadav39@gmail.com,kumar.appsdev@gmail.com"
           releaseNotes: "Fixed login bug, updated UI, improved performance"
-
           file: "*.ipa"
