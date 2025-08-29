@@ -5,9 +5,14 @@ on:
   push:
     branches: [main, develop]
 
+permissions: # ✅ required for artifact sharing
+  contents: read
+  actions: read
+  id-token: write
+
 jobs:
   build-ios:
-    runs-on: macos-14
+    runs-on: macos-14 # ✅ stable Xcode 15.4 (iOS 17 SDK)
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +40,9 @@ jobs:
           flutter clean
           flutter build ipa --release --no-codesign --export-method ad-hoc
 
+      - name: Debug IPA path
+        run: ls -R build/ios/ipa || true
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
@@ -43,7 +51,7 @@ jobs:
 
   distribute:
     needs: build-ios
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # ✅ so the Firebase action can run in Docker
     steps:
       - name: Download IPA artifact
         uses: actions/download-artifact@v4
