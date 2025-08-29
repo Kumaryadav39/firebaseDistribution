@@ -8,7 +8,6 @@ on:
 jobs:
   build-ios:
     runs-on: macos-14
-
     steps:
       - uses: actions/checkout@v4
 
@@ -17,52 +16,24 @@ jobs:
         with:
           flutter-version: "3.24.5"
 
-      - name: Install Flutter dependencies
-        run: flutter pub get
-
-      # ✅ Install CocoaPods to fix "sandbox not in sync with Podfile.lock"
       - name: Install CocoaPods
         run: |
           cd ios
           pod repo update
-          pod install
+          pod install --repo-update
           cd ..
 
-      - name: Build Xcode Archive
+      - name: Build IPA (no codesign)
         run: |
           flutter clean
-          flutter build ios --release --no-codesign
-          mkdir -p build/ios/archive
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -sdk iphoneos \
-            -configuration Release \
-            archive \
-            -archivePath $GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Export IPA
-        run: |
-          ARCHIVE="$GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive"
-          EXPORT_PLIST="$GITHUB_WORKSPACE/ios/ExportOptions.plist"
-          EXPORT_PATH="$GITHUB_WORKSPACE/build/ios/export"
-
-          mkdir -p $EXPORT_PATH
-          xcodebuild -exportArchive \
-            -archivePath "$ARCHIVE" \
-            -exportPath "$EXPORT_PATH" \
-            -exportOptionsPlist "$EXPORT_PLIST" \
-            CODE_SIGNING_ALLOWED=NO
-
-          mv $EXPORT_PATH/*.ipa $GITHUB_WORKSPACE/Runner.ipa
-          echo "✅ IPA created at: $GITHUB_WORKSPACE/Runner.ipa"
+          flutter pub get
+          flutter build ipa --release --no-codesign --export-method ad-hoc
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: Runner.ipa
+          path: build/ios/ipa/*.ipa
 
   distribute:
     needs: build-ios
@@ -80,4 +51,4 @@ jobs:
           token: ${{ secrets.FIREBASE_AUTH_TOKEN }}
           testers: "kumaryadav39@gmail.com,kumar.appsdev@gmail.com"
           releaseNotes: "Fixed login bug, updated UI, improved performance"
-          file: "Runner.ipa"
+          file: "*.ipa"
