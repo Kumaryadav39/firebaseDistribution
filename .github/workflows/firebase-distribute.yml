@@ -10,20 +10,24 @@ jobs:
     runs-on: macos-14
 
     steps:
-      # Checkout repo
       - uses: actions/checkout@v4
 
-      # Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
 
-      # Install dependencies
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
-      # Clean & build archive (without signing)
+      # ✅ Install CocoaPods to fix "sandbox not in sync with Podfile.lock"
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod repo update
+          pod install
+          cd ..
+
       - name: Build Xcode Archive
         run: |
           flutter clean
@@ -38,28 +42,22 @@ jobs:
             -archivePath $GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive \
             CODE_SIGNING_ALLOWED=NO
 
-      # Export IPA using ExportOptions.plist (must exist in ios/ExportOptions.plist)
       - name: Export IPA
         run: |
           ARCHIVE="$GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive"
           EXPORT_PLIST="$GITHUB_WORKSPACE/ios/ExportOptions.plist"
           EXPORT_PATH="$GITHUB_WORKSPACE/build/ios/export"
 
-          echo "📦 Archive: $ARCHIVE"
-          echo "📝 Using ExportOptions.plist: $EXPORT_PLIST"
-
           mkdir -p $EXPORT_PATH
           xcodebuild -exportArchive \
             -archivePath "$ARCHIVE" \
             -exportPath "$EXPORT_PATH" \
             -exportOptionsPlist "$EXPORT_PLIST" \
-            -allowProvisioningUpdates \
             CODE_SIGNING_ALLOWED=NO
 
           mv $EXPORT_PATH/*.ipa $GITHUB_WORKSPACE/Runner.ipa
           echo "✅ IPA created at: $GITHUB_WORKSPACE/Runner.ipa"
 
-      # Upload IPA as artifact
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
@@ -70,13 +68,11 @@ jobs:
     needs: build-ios
     runs-on: ubuntu-latest
     steps:
-      # Download IPA artifact
       - name: Download IPA artifact
         uses: actions/download-artifact@v4
         with:
           name: ios-ipa
 
-      # Upload to Firebase
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
