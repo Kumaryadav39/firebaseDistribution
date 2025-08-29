@@ -23,17 +23,19 @@ jobs:
           pod install --repo-update
           cd ..
 
-      - name: Build IPA (no codesign)
+      - name: Build IPA
         run: |
           flutter clean
           flutter pub get
           flutter build ipa --release --no-codesign --export-method ad-hoc
+          ls -lh build/ios/ipa  # 👀 Debug confirm ipa exists
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
           path: build/ios/ipa/*.ipa
+          if-no-files-found: error # Fail early if IPA missing
 
   distribute:
     needs: build-ios
@@ -43,6 +45,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ios-ipa
+          path: .
+
+      - name: Debug check IPA
+        run: ls -lh
 
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
