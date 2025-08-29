@@ -22,18 +22,42 @@ jobs:
           pod install --repo-update
           cd ..
 
-      - name: Build iOS Archive
+      - name: Create ExportOptions.plist (dynamic)
+        run: |
+          mkdir -p ios
+          cat > ios/ExportOptions.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          <key>method</key>
+           <string>release-testing</string>
+
+            <key>signingStyle</key>
+             <string>manual</string>
+
+              <key>teamID</key>
+               <string>${APPLE_TEAM_ID}</string>
+
+                  <key>compileBitcode</key>
+               <false/>
+                </dict>
+            </plist>
+          EOF
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Build Archive
         run: |
           flutter clean
-          flutter pub get
           flutter build ios --release --no-codesign
           mkdir -p build/ios/archive
-
           xcodebuild -workspace ios/Runner.xcworkspace \
             -scheme Runner \
+            -sdk iphoneos \
             -configuration Release \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            archive CODE_SIGNING_ALLOWED=NO
+            archive -archivePath build/ios/archive/Runner.xcarchive \
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Export IPA
         run: |
@@ -43,7 +67,6 @@ jobs:
             -exportPath build/ios/ipa \
             -exportOptionsPlist ios/ExportOptions.plist \
             CODE_SIGNING_ALLOWED=NO
-          ls -lh build/ios/ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
@@ -59,12 +82,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ios-ipa
+          path: .
 
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
           token: ${{ secrets.FIREBASE_AUTH_TOKEN }}
-          testers: "kumaryadav39@gmail.com,kumar.appsdev@gmail.com"
-          releaseNotes: "iOS build uploaded from GitHub Actions"
+          groups: testers
           file: "*.ipa"
+          releaseNotes: "Fixed login bug, updated UI, improved performance"
